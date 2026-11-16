@@ -87,6 +87,34 @@ function setPhoto(file) {
   else preview.removeAttribute('src');
   preview.hidden = !previewUrl;
   $('retry').hidden = !file;
+  $('photo-actions').hidden = !file;
+  const download = $('download-photo');
+  const share = $('share-photo');
+  const help = $('photo-help');
+  share.hidden = true;
+  share.onclick = null;
+  help.hidden = !file;
+  if (!file) {
+    download.removeAttribute('href');
+    return;
+  }
+  const name = active?.photo === file ? active.photoName : photoFilename(file, '名片-' + Date.now());
+  download.href = previewUrl;
+  download.download = name;
+  const original = new File([file], name, { type: file.type });
+  const shareData = { files: [original] };
+  const canShare = typeof navigator.share === 'function' && navigator.canShare?.(shareData);
+  share.hidden = !canShare;
+  help.textContent = canShare ? '在系统面板中选择「存储图像」或相册。' : '下载后可从文件管理器将原照移到相册。';
+  share.onclick = async () => {
+    try {
+      await navigator.share(shareData);
+    } catch (error) {
+      if (error.name !== 'AbortError' && photo === file) {
+        help.textContent = '可下载原照，再从文件管理器移到相册。';
+      }
+    }
+  };
 }
 
 function setBusy() {
