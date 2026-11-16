@@ -14,6 +14,36 @@ let saving = false;
 let offlineReady = false;
 let exportToken = 0;
 
+const installButton = $('install-app');
+const installHelp = $('install-help');
+let installPrompt;
+
+if (matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
+  installHelp.hidden = true;
+}
+window.addEventListener('beforeinstallprompt', event => {
+  event.preventDefault();
+  installPrompt = event;
+  installButton.hidden = false;
+});
+installButton.onclick = async () => {
+  const prompt = installPrompt;
+  if (!prompt) return;
+  installPrompt = undefined;
+  installButton.hidden = true;
+  try {
+    await prompt.prompt();
+  } catch (error) {
+    console.error(error);
+    installHelp.hidden = false;
+  }
+};
+window.addEventListener('appinstalled', () => {
+  installPrompt = undefined;
+  installButton.hidden = true;
+  installHelp.hidden = true;
+});
+
 for (const [key, name] of Object.entries(fields)) {
   const label = document.createElement('label');
   label.htmlFor = 'field-' + key;
