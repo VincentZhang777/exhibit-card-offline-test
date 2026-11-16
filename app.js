@@ -13,6 +13,15 @@ let working = false;
 let saving = false;
 let offlineReady = false;
 let exportToken = 0;
+const productLines = ['破碎', '制砂', '沥青', '商混', '干混', '建废', '水洗', '泥处理'];
+const productPreferenceKey = 'exhibit-card-last-product';
+let defaultProduct = '';
+try {
+  const savedProduct = localStorage.getItem(productPreferenceKey);
+  if (productLines.includes(savedProduct)) defaultProduct = savedProduct;
+} catch (error) {
+  console.warn('无法读取默认产品线', error);
+}
 
 const installButton = $('install-app');
 const installHelp = $('install-help');
@@ -49,12 +58,26 @@ for (const [key, name] of Object.entries(fields)) {
   label.htmlFor = 'field-' + key;
   label.append(name);
   const multiline = key === 'notes' || key === 'chat';
-  const input = document.createElement(multiline ? 'textarea' : 'input');
+  const input = document.createElement(key === 'product' ? 'select' : multiline ? 'textarea' : 'input');
   input.id = label.htmlFor;
   input.name = key;
   if (key === 'email') input.inputMode = 'email';
   if (key === 'phone') input.inputMode = 'tel';
   if (multiline) label.className = 'wide';
+  if (key === 'product') {
+    input.add(new Option('不选择', ''));
+    for (const line of productLines) input.add(new Option(line, line));
+    input.value = defaultProduct;
+    input.onchange = () => {
+      if (input.value && !productLines.includes(input.value)) return;
+      defaultProduct = input.value;
+      try {
+        localStorage.setItem(productPreferenceKey, defaultProduct);
+      } catch (error) {
+        console.warn('无法保存默认产品线', error);
+      }
+    };
+  }
   label.append(input);
   $('fields').append(label);
   inputs[key] = input;
@@ -206,7 +229,17 @@ function reset(record) {
   active = record;
   form.reset();
   form.elements.type.value = record?.type ?? '国内';
-  for (const [key, input] of Object.entries(inputs)) input.value = record?.[key] ?? '';
+  const legacyOption = inputs.product.querySelector('[data-legacy]');
+  legacyOption?.remove();
+  const product = record ? record.product ?? '' : defaultProduct;
+  if (product && !productLines.includes(product)) {
+    const option = new Option(product, product);
+    option.setAttribute('data-legacy', '');
+    inputs.product.add(option);
+  }
+  for (const [key, input] of Object.entries(inputs)) {
+    input.value = key === 'product' ? product : record?.[key] ?? '';
+  }
   $('confirmed').checked = Boolean(record?.confirmed);
   setPhoto(record?.photo);
   updateForm();
@@ -215,7 +248,8 @@ function reset(record) {
 function discardAllowed() {
   if (working || saving) return false;
   const data = formData();
-  const changed = Object.keys(fields).some(key => data[key] !== (active?.[key] ?? '')) ||
+  const baseline = active ?? { product: defaultProduct };
+  const changed = Object.keys(fields).some(key => data[key] !== (baseline[key] ?? '')) ||
     photo !== active?.photo || data.type !== (active?.type ?? '国内') || data.confirmed !== Boolean(active?.confirmed);
   return !changed || window.confirm('放弃当前未保存的编辑？');
 }
@@ -329,7 +363,7 @@ form.addEventListener('input', event => {
 form.onsubmit = event => {
   event.preventDefault();
   const data = formData();
-  if (!photo && !Object.keys(fields).some(key => data[key])) {
+  if (!photo && !Object.keys(fields).some(key => key !== 'product' && data[key])) {
     window.alert('请先拍摄名片或填写客户信息。');
     return;
   }

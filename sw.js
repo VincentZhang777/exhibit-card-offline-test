@@ -1,4 +1,4 @@
-const CACHE = 'exhibit-card-c05ef76e05ff2640';
+const CACHE = 'exhibit-card-60f65fc8884b18f2';
 const assets = ["./index.html","./style.css","./manifest.webmanifest","./icon-192.png","./icon-512.png","./app.js","./rules.js","./storage.js","./export.js","./vendor/tesseract.min.js","./vendor/worker.min.js","./vendor/core/tesseract-core-lstm.wasm.js","./vendor/core/tesseract-core-simd-lstm.wasm.js","./vendor/lang/eng.traineddata.gz","./vendor/lang/chi_sim.traineddata.gz","./vendor/fflate.js","./vendor/jsQR.js"];
 const urls = new Set(assets.map(path => new URL(path, self.registration.scope).href));
 const entry = new URL('./index.html', self.registration.scope).href;

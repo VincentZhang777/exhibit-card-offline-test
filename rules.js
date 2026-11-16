@@ -47,7 +47,7 @@ export function extract(text) {
 
 export function missingFields(data) {
   const overseas = data.type === '海外';
-  const keys = overseas ? ['name', 'country', 'email', 'product'] : ['name', 'phone', 'province', 'product'];
+  const keys = overseas ? ['name', 'country', 'email'] : ['name', 'phone', 'province'];
   const missing = keys.filter(key => !data[key]);
   if (overseas && !data.phone && !data.chat) missing.push('phone');
   if (overseas && !data.confirmed) missing.push('confirmed');

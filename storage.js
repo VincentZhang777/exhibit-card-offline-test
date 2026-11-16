@@ -1,3 +1,5 @@
+import { missingFields } from './rules.js';
+
 const database = new Promise((resolve, reject) => {
   const request = indexedDB.open('exhibit-cards', 2);
   request.onupgradeneeded = event => {
@@ -39,6 +41,7 @@ export async function putRecord(record) {
 
 function unpack(row, image, includePhoto) {
   const { photoBytes, photoType, photo, ...record } = row;
+  record.draft = missingFields(record).length > 0;
   if (includePhoto) {
     if (image) record.photo = new Blob([image.bytes], { type: image.type });
     else if (photoBytes) record.photo = new Blob([photoBytes], { type: photoType });
