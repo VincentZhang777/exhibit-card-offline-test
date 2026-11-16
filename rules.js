@@ -1,5 +1,5 @@
 export const fields = {
-  name: '姓名', company: '公司', phone: '电话', chat: 'WhatsApp / LINE', email: '邮箱',
+  name: '姓名', company: '公司', phone: '电话', chat: '微信 / WhatsApp / LINE', email: '邮箱',
   province: '省份', country: '国家', product: '咨询产品线', notes: '特殊需求', sales: '指定销售',
 };
 
@@ -28,7 +28,7 @@ export function extract(text) {
     }
     const region = line.match(country);
     if (region) result.country ??= region[1];
-    const contact = line.match(/^(WhatsApp|LINE)(?:\s*:\s*|\s+)(.+)$/i);
+    const contact = line.match(/^(微信(?:号)?|WeChat|WhatsApp|LINE)(?:\s*:\s*|\s+)(.+)$/i);
     if (contact) candidate('chat', contact[1] + ' ' + contact[2]);
     const numbers = line.replace(email, '').split(/(?:\bfax\b|传真|邮编|postal code|postcode)/i)[0];
     for (const [, number] of numbers.matchAll(/(?:^|[^\w@])(\+?\d[\d ()-]{5,23}\d)(?![\w@])/g)) {

@@ -48,12 +48,13 @@ for (const [key, name] of Object.entries(fields)) {
   const label = document.createElement('label');
   label.htmlFor = 'field-' + key;
   label.append(name);
-  const input = document.createElement(key === 'notes' ? 'textarea' : 'input');
+  const multiline = key === 'notes' || key === 'chat';
+  const input = document.createElement(multiline ? 'textarea' : 'input');
   input.id = label.htmlFor;
   input.name = key;
   if (key === 'email') input.inputMode = 'email';
   if (key === 'phone') input.inputMode = 'tel';
-  if (key === 'notes') label.className = 'wide';
+  if (multiline) label.className = 'wide';
   label.append(input);
   $('fields').append(label);
   inputs[key] = input;
@@ -75,7 +76,7 @@ function updateForm() {
   const missing = missingFields(data);
   for (const [key, input] of Object.entries(inputs)) input.toggleAttribute('data-missing', missing.includes(key));
   $('missing').textContent = missing.length ? '待补：' + missing.map(key => key === 'confirmed'
-    ? '二次确认联系方式' : key === 'phone' && abroad ? '电话或 WhatsApp / LINE' : fields[key]).join('、') : '';
+    ? '二次确认联系方式' : key === 'phone' && abroad ? '电话或' + fields.chat : fields[key]).join('、') : '';
 }
 
 function setPhoto(file) {
@@ -128,22 +129,41 @@ function setBusy() {
 async function recognize() {
   if (!photo || working || saving) return;
   if (!offlineReady) {
-    status.textContent = '照片已选中。离线资源准备好后可点「重新识别」，也可以手填。';
+    status.textContent = '照片已选中，离线资源就绪后会自动识别。';
     return;
   }
   let worker;
+  let qrFilled = false;
   working = true;
   setBusy();
   status.textContent = '正在加载本机识别模型…';
   try {
-    // Decode and resize only the OCR input. Store and export the original File unchanged.
+    // Resize only the image used for recognition. Keep the original File for storage and export.
     const preview = $('preview');
     await preview.decode();
     const ratio = Math.min(1, 2000 / Math.max(preview.naturalWidth, preview.naturalHeight));
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(preview.naturalWidth * ratio));
     canvas.height = Math.max(1, Math.round(preview.naturalHeight * ratio));
-    canvas.getContext('2d').drawImage(preview, 0, 0, canvas.width, canvas.height);
+    const context = canvas.getContext('2d');
+    context.fillStyle = 'white';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(preview, 0, 0, canvas.width, canvas.height);
+    try {
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+      const content = globalThis.jsQR(pixels.data, pixels.width, pixels.height)?.data.replace(/\r\n?/g, '\n').trim();
+      if (content) {
+        const current = inputs.chat.value.trim();
+        if (!('\n\n' + current + '\n\n').includes('\n\n' + content + '\n\n')) {
+          inputs.chat.value = current ? current + '\n\n' + content : content;
+          $('confirmed').checked = false;
+          qrFilled = true;
+          updateForm();
+        }
+      }
+    } catch (error) {
+      console.error('无法识别二维码', error);
+    }
     const languages = form.elements.type.value === '海外' ? ['eng', 'chi_sim'] : ['chi_sim', 'eng'];
     worker = await globalThis.Tesseract.createWorker(languages, 1, {
       workerPath: new URL('./vendor/worker.min.js', import.meta.url).href,
@@ -158,7 +178,7 @@ async function recognize() {
     });
     await worker.setParameters({ tessedit_pageseg_mode: '11' });
     const { data } = await worker.recognize(canvas);
-    let filled = 0;
+    let filled = Number(qrFilled);
     for (const [key, value] of Object.entries(extract(data.text))) {
       if (!inputs[key].value.trim()) {
         inputs[key].value = value;
@@ -167,10 +187,11 @@ async function recognize() {
       }
     }
     updateForm();
-    status.textContent = filled ? '已预填 ' + filled + ' 项，请核对原照和联系方式。' : '没有新的可预填字段，可对照原照手填。';
+    status.textContent = filled ? (qrFilled ? '已识别二维码。' : '') + '已预填 ' + filled + ' 项，请核对原照和联系方式。'
+      : '没有新的可预填字段，可对照原照手填。';
   } catch (error) {
     console.error(error);
-    status.textContent = '识别失败。可以重拍、换一张照片或手填，当前原照仍可保存。';
+    status.textContent = (qrFilled ? '已填写二维码内容。' : '') + '文字识别失败，可以重拍或手填，当前原照仍可保存。';
   } finally {
     try {
       if (worker) await worker.terminate();
@@ -359,6 +380,7 @@ async function prepareOffline() {
     });
     offlineReady = true;
     $('offline').textContent = '离线已就绪。拍照、识别、保存和导出均可断网使用。';
+    if (photo && photo !== active?.photo) recognize();
   } catch (error) {
     $('offline').textContent = '离线资源尚未就绪。' + error.message;
     $('prepare').hidden = false;
