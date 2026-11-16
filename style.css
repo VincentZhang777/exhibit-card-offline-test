@@ -1,0 +1,42 @@
+:root {
+  color-scheme: light;
+  font: 16px/1.5 system-ui, sans-serif;
+  color: #242127;
+  background: #f6f3f3;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; }
+header, main { max-width: 48rem; margin: auto; padding: 1rem; }
+header { padding-top: max(1rem, env(safe-area-inset-top)); padding-bottom: 0; }
+h1 { margin: 0; font-size: 1.75rem; }
+h2 { margin: 0 0 .65rem; font-size: 1.15rem; }
+p { margin: .55rem 0; }
+.install { color: #61565a; font-size: .9rem; }
+section, dialog { background: white; border: 1px solid #e6dddd; border-radius: .8rem; padding: 1rem; }
+section { margin-bottom: 1rem; }
+dialog { max-width: min(28rem, 90vw); }
+dialog::backdrop { background: #20141888; }
+button, .pick {
+  display: inline-flex; align-items: center; min-height: 44px; padding: .4rem .75rem;
+  border: 1px solid #a38b8e; border-radius: .45rem; background: white; color: inherit;
+  font: inherit; cursor: pointer;
+}
+.primary { background: #84232a; color: white; border-color: #84232a; }
+button:disabled { opacity: .5; cursor: default; }
+.actions { display: flex; gap: .55rem; flex-wrap: wrap; }
+.pick { position: relative; overflow: hidden; }
+.pick:focus-within { outline: 2px solid #1866a2; }
+.pick input { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; font-size: 16px; }
+#preview { display: block; width: 100%; max-height: 14rem; object-fit: contain; margin-top: .75rem; background: #f7f5f5; }
+fieldset { border: 0; margin: 0 0 .6rem; padding: 0; }
+fieldset label { display: inline-flex; align-items: center; min-height: 44px; margin-right: 1rem; }
+#fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+#fields label { display: grid; gap: .2rem; }
+#fields input, textarea { width: 100%; min-height: 44px; border: 1px solid #ad9fa2; border-radius: .35rem; padding: .4rem .5rem; font: inherit; }
+#fields .wide { grid-column: 1 / -1; }
+[data-missing] { border-color: #a12823 !important; background: #fff6f4; }
+#missing { color: #902620; }
+#verify { display: block; margin-top: .65rem; }
+#records { list-style: none; padding: 0; margin: .6rem 0 0; }
+#records li { display: flex; justify-content: space-between; align-items: center; gap: .55rem; border-top: 1px solid #eee5e5; padding: .6rem 0; overflow-wrap: anywhere; }
