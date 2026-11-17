@@ -9,6 +9,7 @@ const inputs = {};
 let active;
 let photo;
 let previewUrl;
+let previewLoaded;
 let working = false;
 let saving = false;
 let offlineReady = false;
@@ -103,12 +104,15 @@ function updateForm() {
 }
 
 function setPhoto(file) {
-  if (previewUrl) URL.revokeObjectURL(previewUrl);
+  const previousUrl = previewUrl;
   photo = file;
   previewUrl = file ? URL.createObjectURL(file) : undefined;
   const preview = $('preview');
-  if (previewUrl) preview.src = previewUrl;
-  else preview.removeAttribute('src');
+  preview.onload = null;
+  preview.onerror = null;
+  previewLoaded = file ? loadPreview(preview, file, previewUrl) : undefined;
+  if (!file) preview.removeAttribute('src');
+  if (previousUrl) URL.revokeObjectURL(previousUrl);
   preview.hidden = !previewUrl;
   $('retry').hidden = !file;
   $('photo-actions').hidden = !file;
@@ -127,7 +131,12 @@ function setPhoto(file) {
   download.download = name;
   const original = new File([file], name, { type: file.type });
   const shareData = { files: [original] };
-  const canShare = typeof navigator.share === 'function' && navigator.canShare?.(shareData);
+  let canShare = false;
+  try {
+    canShare = typeof navigator.share === 'function' && navigator.canShare?.(shareData);
+  } catch (error) {
+    console.warn('无法分享原照', error);
+  }
   share.hidden = !canShare;
   help.textContent = canShare ? '在系统面板中选择「存储图像」或相册。' : '下载后可从文件管理器将原照移到相册。';
   share.onclick = async () => {
@@ -141,6 +150,50 @@ function setPhoto(file) {
   };
 }
 
+function loadPreview(preview, file, url) {
+  return new Promise(resolve => {
+    function unavailable() {
+      if (previewUrl === url) {
+        preview.hidden = true;
+        status.textContent = '无法显示这张照片。原照可以保存，也可以重拍或选择另一张照片。';
+      }
+      resolve(false);
+    }
+    preview.onload = () => resolve(true);
+    preview.onerror = () => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (previewUrl !== url) {
+          resolve(false);
+          return;
+        }
+        preview.onerror = unavailable;
+        preview.src = reader.result;
+      };
+      reader.onerror = unavailable;
+      reader.readAsDataURL(file);
+    };
+    preview.src = url;
+  });
+}
+
+function loadLibrary(path, name) {
+  if (globalThis[name]) return Promise.resolve(globalThis[name]);
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = new URL(path, import.meta.url).href;
+    script.onload = () => {
+      if (globalThis[name]) resolve(globalThis[name]);
+      else reject(new Error('无法初始化 ' + name));
+    };
+    script.onerror = () => {
+      script.remove();
+      reject(new Error('无法加载 ' + name));
+    };
+    document.head.append(script);
+  });
+}
+
 function setBusy() {
   $('save').disabled = working || saving;
   $('clear').disabled = working || saving;
@@ -151,8 +204,10 @@ function setBusy() {
 
 async function recognize() {
   if (!photo || working || saving) return;
+  const selectedPhoto = photo;
+  if (!await previewLoaded || photo !== selectedPhoto || working || saving) return;
   if (!offlineReady) {
-    status.textContent = '照片已选中，离线资源就绪后会自动识别。';
+    status.textContent = '照片已显示。离线资源就绪后会自动识别，也可以先手填保存。';
     return;
   }
   let worker;
@@ -163,7 +218,6 @@ async function recognize() {
   try {
     // Resize only the image used for recognition. Keep the original File for storage and export.
     const preview = $('preview');
-    await preview.decode();
     const ratio = Math.min(1, 2000 / Math.max(preview.naturalWidth, preview.naturalHeight));
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(preview.naturalWidth * ratio));
@@ -173,8 +227,9 @@ async function recognize() {
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(preview, 0, 0, canvas.width, canvas.height);
     try {
+      const scanQR = await loadLibrary('./vendor/jsQR.js', 'jsQR');
       const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
-      const content = globalThis.jsQR(pixels.data, pixels.width, pixels.height)?.data.replace(/\r\n?/g, '\n').trim();
+      const content = scanQR(pixels.data, pixels.width, pixels.height)?.data.replace(/\r\n?/g, '\n').trim();
       if (content) {
         const current = inputs.chat.value.trim();
         if (!('\n\n' + current + '\n\n').includes('\n\n' + content + '\n\n')) {
@@ -188,7 +243,8 @@ async function recognize() {
       console.error('无法识别二维码', error);
     }
     const languages = form.elements.type.value === '海外' ? ['eng', 'chi_sim'] : ['chi_sim', 'eng'];
-    worker = await globalThis.Tesseract.createWorker(languages, 1, {
+    const tesseract = await loadLibrary('./vendor/tesseract.min.js', 'Tesseract');
+    worker = await tesseract.createWorker(languages, 1, {
       workerPath: new URL('./vendor/worker.min.js', import.meta.url).href,
       corePath: new URL('./vendor/core', import.meta.url).href,
       langPath: new URL('./vendor/lang', import.meta.url).href,
@@ -349,11 +405,12 @@ async function prepareExport(kind) {
 for (const choice of [$('camera'), $('album')]) {
   choice.onchange = () => {
     const file = choice.files[0];
-    choice.value = '';
     if (!file || working || saving) return;
-    if (photo && !window.confirm('替换当前照片？表单字段会保留，请根据新照片核对。')) return;
-    setPhoto(file);
-    recognize();
+    if (!photo || window.confirm('替换当前照片？表单字段会保留，请根据新照片核对。')) {
+      setPhoto(file);
+      recognize();
+    }
+    choice.value = '';
   };
 }
 form.addEventListener('input', event => {
@@ -392,25 +449,44 @@ async function prepareOffline() {
   $('prepare').hidden = true;
   $('offline').textContent = '正在准备离线资源，首次需要联网…';
   try {
-    if (!navigator.serviceWorker) throw new Error('请使用 HTTPS 地址打开。');
-    const registration = await navigator.serviceWorker.register('./sw.js');
-    const worker = registration.installing ?? registration.waiting ?? registration.active;
-    if (!worker) throw new Error('未找到离线服务。');
+    const serviceWorker = navigator.serviceWorker;
+    if (!serviceWorker) throw new Error('请使用 HTTPS 地址打开。');
     await new Promise((resolve, reject) => {
+      let worker;
+      let finished = false;
+      const timer = setTimeout(() => {
+        $('offline').textContent = '离线资源还在准备，请保持联网。可以先拍照预览、手填并保存。';
+      }, 15_000);
+      const deadline = setTimeout(() => finish(new Error('等待超时，请保持联网后重试。')), 60_000);
+      function finish(error) {
+        finished = true;
+        clearTimeout(timer);
+        clearTimeout(deadline);
+        worker?.removeEventListener('statechange', check);
+        serviceWorker.removeEventListener('controllerchange', check);
+        if (error) reject(error);
+        else resolve();
+      }
       function check() {
-        if (worker.state === 'activated' && navigator.serviceWorker.controller?.state === 'activated') {
-          worker.removeEventListener('statechange', check);
-          navigator.serviceWorker.removeEventListener('controllerchange', check);
-          resolve();
+        if (worker.state === 'activated' && serviceWorker.controller === worker) {
+          finish();
         } else if (worker.state === 'redundant') {
-          worker.removeEventListener('statechange', check);
-          navigator.serviceWorker.removeEventListener('controllerchange', check);
-          reject(new Error('资源下载失败，请联网重试。'));
+          finish(new Error('资源下载失败，请联网重试。'));
         }
       }
-      worker.addEventListener('statechange', check);
-      navigator.serviceWorker.addEventListener('controllerchange', check);
-      check();
+      serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(registration => {
+        if (finished) return;
+        worker = registration.installing ?? registration.waiting ?? registration.active;
+        if (!worker) {
+          finish(new Error('未找到离线服务。'));
+          return;
+        }
+        worker.addEventListener('statechange', check);
+        serviceWorker.addEventListener('controllerchange', check);
+        check();
+      }, error => {
+        if (!finished) finish(error);
+      });
     });
     offlineReady = true;
     $('offline').textContent = '离线已就绪。拍照、识别、保存和导出均可断网使用。';

@@ -11,7 +11,7 @@
 <body>
 <header>
   <h1>展会名片登记</h1>
-  <p id="offline" role="status">正在准备离线资源…</p>
+  <p id="offline" role="status">正在打开登记页面…</p>
   <button type="button" id="prepare" hidden>重新准备离线资源</button>
   <button type="button" id="install-app" hidden>安装到桌面</button>
   <p class="install" id="install-help">安卓 Chrome 菜单 →「安装和创建快捷方式」或「添加到主屏幕」。iPhone Safari 分享 →「添加到主屏幕」。</p>
@@ -64,8 +64,6 @@
     <div class="actions"><button value="cancel">继续编辑</button><button class="primary" value="save" id="confirmButton">确认保存</button></div>
   </form>
 </dialog>
-<script src="./vendor/tesseract.min.js" defer></script>
-<script src="./vendor/jsQR.js" defer></script>
 <script type="module" src="./app.js"></script>
 </body>
 </html>

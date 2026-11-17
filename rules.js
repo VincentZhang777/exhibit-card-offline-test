@@ -17,7 +17,7 @@ export function extract(text) {
     result[key] = [...values].join(' / ');
   }
   for (const line of text.normalize('NFKC').split(/\r?\n/)
-    .map(line => line.trim().replace(/(?<=[\u3400-\u9fff])\s+(?=[\u3400-\u9fff])/g, '')).filter(Boolean)) {
+    .map(line => line.trim().replace(/([\u3400-\u9fff])\s+(?=[\u3400-\u9fff])/g, '$1')).filter(Boolean)) {
     for (const address of line.match(email) ?? []) candidate('email', address);
     const explicitName = line.match(/^(?:姓名|name)\s*:\s*(.+)$/i);
     if (explicitName) result.name ??= explicitName[1];
