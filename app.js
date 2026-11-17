@@ -5,6 +5,7 @@ import { photoArchive, workbook } from './export.js';
 const $ = id => document.getElementById(id);
 const form = $('card');
 const status = $('status');
+const ocrLanguage = $('ocr-language');
 const inputs = {};
 let active;
 let photo;
@@ -62,6 +63,7 @@ for (const [key, name] of Object.entries(fields)) {
   const input = document.createElement(key === 'product' ? 'select' : multiline ? 'textarea' : 'input');
   input.id = label.htmlFor;
   input.name = key;
+  if (['name', 'company', 'notes'].includes(key)) input.dir = 'auto';
   if (key === 'email') input.inputMode = 'email';
   if (key === 'phone') input.inputMode = 'tel';
   if (multiline) label.className = 'wide';
@@ -104,6 +106,9 @@ function updateForm() {
 }
 
 function setPhoto(file) {
+  $('ocr-result').hidden = true;
+  $('ocr-result').open = false;
+  $('ocr-text').textContent = '';
   const previousUrl = previewUrl;
   photo = file;
   previewUrl = file ? URL.createObjectURL(file) : undefined;
@@ -200,6 +205,7 @@ function setBusy() {
   $('retry').disabled = working || saving;
   $('camera').disabled = working || saving;
   $('album').disabled = working || saving;
+  ocrLanguage.disabled = working || saving;
 }
 
 async function recognize() {
@@ -214,6 +220,7 @@ async function recognize() {
   let qrFilled = false;
   working = true;
   setBusy();
+  $('ocr-result').hidden = true;
   status.textContent = '正在加载本机识别模型…';
   try {
     // Resize only the image used for recognition. Keep the original File for storage and export.
@@ -242,7 +249,8 @@ async function recognize() {
     } catch (error) {
       console.error('无法识别二维码', error);
     }
-    const languages = form.elements.type.value === '海外' ? ['eng', 'chi_sim'] : ['chi_sim', 'eng'];
+    const languages = ocrLanguage.value ? [ocrLanguage.value, 'eng']
+      : form.elements.type.value === '海外' ? ['eng', 'chi_sim'] : ['chi_sim', 'eng'];
     const tesseract = await loadLibrary('./vendor/tesseract.min.js', 'Tesseract');
     worker = await tesseract.createWorker(languages, 1, {
       workerPath: new URL('./vendor/worker.min.js', import.meta.url).href,
@@ -257,6 +265,8 @@ async function recognize() {
     });
     await worker.setParameters({ tessedit_pageseg_mode: '11' });
     const { data } = await worker.recognize(canvas);
+    $('ocr-text').textContent = data.text.trim();
+    $('ocr-result').hidden = !$('ocr-text').textContent;
     let filled = Number(qrFilled);
     for (const [key, value] of Object.entries(extract(data.text))) {
       if (!inputs[key].value.trim()) {
@@ -283,7 +293,9 @@ async function recognize() {
 
 function reset(record) {
   active = record;
+  const language = ocrLanguage.value;
   form.reset();
+  ocrLanguage.value = language;
   form.elements.type.value = record?.type ?? '国内';
   const legacyOption = inputs.product.querySelector('[data-legacy]');
   legacyOption?.remove();

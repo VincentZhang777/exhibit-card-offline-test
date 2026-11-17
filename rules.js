@@ -19,9 +19,11 @@ export function extract(text) {
   for (const line of text.normalize('NFKC').split(/\r?\n/)
     .map(line => line.trim().replace(/([\u3400-\u9fff])\s+(?=[\u3400-\u9fff])/g, '$1')).filter(Boolean)) {
     for (const address of line.match(email) ?? []) candidate('email', address);
-    const explicitName = line.match(/^(?:姓名|name)\s*:\s*(.+)$/i);
+    const explicitName = line.match(/^(?:姓名|name|имя|фио|nombre|nom|الاسم|اسم)\s*:\s*(.+)$/i);
     if (explicitName) result.name ??= explicitName[1];
-    if (company.test(line)) result.company ??= line;
+    const explicitCompany = line.match(/^(?:公司|company|компания|empresa|société|entreprise|الشركة|شركة)\s*:\s*(.+)$/i);
+    if (explicitCompany) result.company ??= explicitCompany[1];
+    else if (company.test(line)) result.company ??= line;
     if (!company.test(line) && /地址|省|市|区|县|路|街|号/.test(line)) {
       const match = line.match(province);
       if (match) result.province ??= match[0];

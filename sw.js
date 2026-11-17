@@ -1,5 +1,5 @@
-const CACHE = 'exhibit-card-fffed55f8f884b0a';
-const assets = ["./index.html","./style.css","./manifest.webmanifest","./icon-192.png","./icon-512.png","./app.js","./rules.js","./storage.js","./export.js","./vendor/tesseract.min.js","./vendor/worker.min.js","./vendor/core/tesseract-core-lstm.wasm.js","./vendor/core/tesseract-core-simd-lstm.wasm.js","./vendor/lang/eng.traineddata.gz","./vendor/lang/chi_sim.traineddata.gz","./vendor/fflate.js","./vendor/jsQR.js"];
+const CACHE = 'exhibit-card-e026cebe7bcd6e0a';
+const assets = ["./index.html","./style.css","./manifest.webmanifest","./icon-192.png","./icon-512.png","./app.js","./rules.js","./storage.js","./export.js","./vendor/tesseract.min.js","./vendor/worker.min.js","./vendor/core/tesseract-core-lstm.wasm.js","./vendor/core/tesseract-core-simd-lstm.wasm.js","./vendor/lang/eng.traineddata.gz","./vendor/lang/chi_sim.traineddata.gz","./vendor/lang/rus.traineddata.gz","./vendor/lang/spa.traineddata.gz","./vendor/lang/ara.traineddata.gz","./vendor/lang/fra.traineddata.gz","./vendor/fflate.js","./vendor/jsQR.js"];
 const urls = new Set(assets.map(path => new URL(path, self.registration.scope).href));
 const entry = new URL('./index.html', self.registration.scope).href;
 

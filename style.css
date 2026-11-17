@@ -25,6 +25,8 @@ button, .pick {
 .primary { background: #84232a; color: white; border-color: #84232a; }
 button:disabled { opacity: .5; cursor: default; }
 .actions { display: flex; gap: .55rem; flex-wrap: wrap; }
+.ocr-language { display: grid; gap: .2rem; margin-bottom: .65rem; }
+#ocr-text { white-space: pre-wrap; overflow-wrap: anywhere; unicode-bidi: plaintext; font: inherit; }
 .pick { position: relative; overflow: hidden; }
 .pick:focus-within { outline: 2px solid #1866a2; }
 .pick input { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; font-size: 16px; }
@@ -33,7 +35,7 @@ fieldset { border: 0; margin: 0 0 .6rem; padding: 0; }
 fieldset label { display: inline-flex; align-items: center; min-height: 44px; margin-right: 1rem; }
 #fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
 #fields label { display: grid; gap: .2rem; }
-#fields input, #fields textarea, #fields select { width: 100%; min-height: 44px; border: 1px solid #ad9fa2; border-radius: .35rem; padding: .4rem .5rem; font: inherit; }
+#fields input, #fields textarea, #fields select, #ocr-language { width: 100%; min-height: 44px; border: 1px solid #ad9fa2; border-radius: .35rem; padding: .4rem .5rem; font: inherit; }
 #fields .wide { grid-column: 1 / -1; }
 [data-missing] { border-color: #a12823 !important; background: #fff6f4; }
 #missing { color: #902620; }

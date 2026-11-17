@@ -20,6 +20,15 @@
   <form id="card">
     <section>
       <h2>名片照片</h2>
+      <label class="ocr-language" for="ocr-language">识别语言
+        <select id="ocr-language">
+          <option value="">中英（按客户类型优先）</option>
+          <option value="rus">俄语 + 英语</option>
+          <option value="spa">西班牙语 + 英语</option>
+          <option value="ara">阿拉伯语 + 英语</option>
+          <option value="fra">法语 + 英语</option>
+        </select>
+      </label>
       <div class="actions">
         <label class="primary pick">拍摄名片<input id="camera" type="file" accept="image/*" capture="environment"></label>
         <label class="pick">选择照片<input id="album" type="file" accept="image/*"></label>
@@ -32,6 +41,10 @@
       </div>
       <p id="photo-help" role="status" hidden></p>
       <p id="status" role="status">也可以直接手填。</p>
+      <details id="ocr-result" hidden>
+        <summary>查看识别原文</summary>
+        <pre id="ocr-text" dir="auto"></pre>
+      </details>
     </section>
     <section>
       <h2>客户资料</h2>
