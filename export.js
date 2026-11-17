@@ -91,24 +91,36 @@ export async function workbook(records, getRecord) {
       console.warn('无法嵌入名片照片', error);
     }
   }
+  const strings = new Map();
+  const cell = (value, column, row) => {
+    const escaped = xmlText(value);
+    if (!escaped) return '';
+    if (!strings.has(escaped)) strings.set(escaped, strings.size);
+    return '<c r="' + String.fromCharCode(65 + column) + row + '" t="s"><v>' + strings.get(escaped) + '</v></c>';
+  };
   const sheetData = rows.map((row, index) => '<row r="' + (index + 1) + '"' +
     (rowHeights.has(index) ? ' ht="' + rowHeights.get(index) + '" customHeight="1"' : '') + '>' +
-    row.map((value, column) => '<c r="' + String.fromCharCode(65 + column) + (index + 1) +
-      '" t="inlineStr"><is><t xml:space="preserve">' + xmlText(value) + '</t></is></c>').join('') + '</row>').join('');
-  const drawingContent = photos.length ? '<Default Extension="jpeg" ContentType="image/jpeg"/>' +
+    row.map((value, column) => cell(value, column, index + 1)).join('') + '</row>').join('');
+  const photoType = photos.length ? '<Default Extension="jpeg" ContentType="image/jpeg"/>' : '';
+  const drawingContent = photos.length ?
     '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>' : '';
   const parts = {
     '[Content_Types].xml': '<Types xmlns="' + contentNamespace + '">' +
       '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
       '<Default Extension="xml" ContentType="application/xml"/>' +
+      photoType +
       '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
       '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+      '<Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>' +
       drawingContent + '</Types>',
     '_rels/.rels': relationships([['officeDocument', 'xl/workbook.xml']]),
-    'xl/_rels/workbook.xml.rels': relationships([['worksheet', 'worksheets/sheet1.xml']]),
+    'xl/_rels/workbook.xml.rels': relationships([['worksheet', 'worksheets/sheet1.xml'], ['sharedStrings', 'sharedStrings.xml']]),
     'xl/workbook.xml': '<workbook xmlns="' + sheetNamespace + '" xmlns:r="' + officeRelationships +
       '"><sheets><sheet name="客户登记" sheetId="1" r:id="rId1"/></sheets></workbook>',
+    'xl/sharedStrings.xml': '<sst xmlns="' + sheetNamespace + '">' +
+      [...strings.keys()].map(value => '<si><t xml:space="preserve">' + value + '</t></si>').join('') + '</sst>',
     'xl/worksheets/sheet1.xml': '<worksheet xmlns="' + sheetNamespace + '" xmlns:r="' + officeRelationships + '">' +
+      '<dimension ref="A1:' + String.fromCharCode(65 + photoColumn) + rows.length + '"/>' +
       '<cols><col min="' + (photoColumn + 1) + '" max="' + (photoColumn + 1) + '" width="33" customWidth="1"/></cols>' +
       '<sheetData>' + sheetData + '</sheetData>' + (photos.length ? '<drawing r:id="rId1"/>' : '') + '</worksheet>',
   };
