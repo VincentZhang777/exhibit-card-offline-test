@@ -1,12 +1,16 @@
-const CACHE = 'exhibit-card-e026cebe7bcd6e0a';
+const CACHE = 'exhibit-card-03badc014d279b7b';
 const assets = ["./index.html","./style.css","./manifest.webmanifest","./icon-192.png","./icon-512.png","./app.js","./rules.js","./storage.js","./export.js","./vendor/tesseract.min.js","./vendor/worker.min.js","./vendor/core/tesseract-core-lstm.wasm.js","./vendor/core/tesseract-core-simd-lstm.wasm.js","./vendor/lang/eng.traineddata.gz","./vendor/lang/chi_sim.traineddata.gz","./vendor/lang/rus.traineddata.gz","./vendor/lang/spa.traineddata.gz","./vendor/lang/ara.traineddata.gz","./vendor/lang/fra.traineddata.gz","./vendor/fflate.js","./vendor/jsQR.js"];
-const urls = new Set(assets.map(path => new URL(path, self.registration.scope).href));
+const modelAssets = ["./vendor/tesseract.min.js","./vendor/worker.min.js","./vendor/core/tesseract-core-lstm.wasm.js","./vendor/core/tesseract-core-simd-lstm.wasm.js","./vendor/lang/eng.traineddata.gz","./vendor/lang/chi_sim.traineddata.gz","./vendor/lang/rus.traineddata.gz","./vendor/lang/spa.traineddata.gz","./vendor/lang/ara.traineddata.gz","./vendor/lang/fra.traineddata.gz","./vendor/jsQR.js"];
+const resolveAsset = path => new URL(path, self.registration.scope).href;
+const urls = new Set(assets.map(resolveAsset));
+const models = new Set(modelAssets.map(resolveAsset));
 const entry = new URL('./index.html', self.registration.scope).href;
 
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
-    await cache.addAll(assets.map(path => new Request(new URL(path, self.registration.scope), { cache: 'reload' })));
+    const shell = [...urls].filter(url => !models.has(url));
+    await cache.addAll(shell.map(url => new Request(url, { cache: 'reload' })));
     await self.skipWaiting();
   })());
 });
@@ -25,6 +29,12 @@ self.addEventListener('fetch', event => {
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
     const key = navigation ? entry : request;
-    return await cache.match(key) ?? fetch(key);
+    const cached = await cache.match(key);
+    if (cached) return cached;
+    if (!models.has(request.url)) return fetch(key);
+    const response = await fetch(request, { cache: 'reload' });
+    if (!response.ok) return response;
+    await cache.put(request, response.clone());
+    return response;
   })());
 });

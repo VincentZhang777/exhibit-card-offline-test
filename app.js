@@ -6,6 +6,7 @@ const $ = id => document.getElementById(id);
 const form = $('card');
 const status = $('status');
 const ocrLanguage = $('ocr-language');
+const modelAssets = ["./vendor/tesseract.min.js","./vendor/worker.min.js","./vendor/core/tesseract-core-lstm.wasm.js","./vendor/core/tesseract-core-simd-lstm.wasm.js","./vendor/lang/eng.traineddata.gz","./vendor/lang/chi_sim.traineddata.gz","./vendor/lang/rus.traineddata.gz","./vendor/lang/spa.traineddata.gz","./vendor/lang/ara.traineddata.gz","./vendor/lang/fra.traineddata.gz","./vendor/jsQR.js"];
 const inputs = {};
 let active;
 let photo;
@@ -457,6 +458,33 @@ $('clear').onclick = () => {
 $('excel').onclick = () => prepareExport('excel');
 $('photos').onclick = () => prepareExport('photos');
 
+async function prepareModels() {
+  let ready = 0;
+  function showProgress() {
+    $('offline').textContent = '正在下载离线识别资源（' + ready + '/' + modelAssets.length +
+      '）。请保持联网，可先拍照、手填并保存。';
+  }
+  showProgress();
+  for (let offset = 0; offset < modelAssets.length; offset += 3) {
+    const batch = await Promise.allSettled(modelAssets.slice(offset, offset + 3).map(async path => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 90_000);
+      try {
+        const response = await fetch(path, { signal: controller.signal });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        response.body?.cancel().catch(() => {});
+        ready++;
+        showProgress();
+      } finally {
+        clearTimeout(timer);
+      }
+    }));
+    if (batch.some(result => result.status === 'rejected')) {
+      throw new Error('下载中断。请联网重试，已下载的资源会保留。');
+    }
+  }
+}
+
 async function prepareOffline() {
   $('prepare').hidden = true;
   $('offline').textContent = '正在准备离线资源，首次需要联网…';
@@ -467,9 +495,9 @@ async function prepareOffline() {
       let worker;
       let finished = false;
       const timer = setTimeout(() => {
-        $('offline').textContent = '离线资源还在准备，请保持联网。可以先拍照预览、手填并保存。';
+        $('offline').textContent = '正在连接离线服务。请保持联网，可先拍照、手填并保存。';
       }, 15_000);
-      const deadline = setTimeout(() => finish(new Error('等待超时，请保持联网后重试。')), 60_000);
+      const deadline = setTimeout(() => finish(new Error('连接离线服务超时，请联网后重试。')), 120_000);
       function finish(error) {
         finished = true;
         clearTimeout(timer);
@@ -483,7 +511,7 @@ async function prepareOffline() {
         if (worker.state === 'activated' && serviceWorker.controller === worker) {
           finish();
         } else if (worker.state === 'redundant') {
-          finish(new Error('资源下载失败，请联网重试。'));
+          finish(new Error('页面资源下载失败，请联网重试。'));
         }
       }
       serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(registration => {
@@ -500,6 +528,7 @@ async function prepareOffline() {
         if (!finished) finish(error);
       });
     });
+    await prepareModels();
     offlineReady = true;
     $('offline').textContent = '离线已就绪。拍照、识别、保存和导出均可断网使用。';
     if (photo && photo !== active?.photo) recognize();
