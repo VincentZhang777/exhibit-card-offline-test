@@ -402,7 +402,8 @@ async function prepareExport(kind) {
     const records = await listRecords(kind === 'photos');
     if (!records.length) throw new Error('暂无已保存的记录。');
     if (kind === 'photos' && !records.some(row => row.photo)) throw new Error('已保存的记录中没有照片。');
-    const blob = kind === 'excel' ? workbook(records) : await photoArchive(records);
+    const { blob, skippedPhotos = 0 } = kind === 'excel'
+      ? await workbook(records, getRecord) : { blob: await photoArchive(records) };
     if (token !== exportToken) return;
     downloadUrl = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -410,6 +411,7 @@ async function prepareExport(kind) {
     link.download = kind === 'excel' ? '展会客户.xlsx' : '名片原照.zip';
     link.textContent = '下载 ' + link.download;
     feedback.replaceChildren(link);
+    if (skippedPhotos) feedback.append('（' + skippedPhotos + ' 张照片无法嵌入，可另行导出原照 ZIP）');
   } catch (error) {
     if (token === exportToken) feedback.textContent = '无法导出：' + error.message;
   }
