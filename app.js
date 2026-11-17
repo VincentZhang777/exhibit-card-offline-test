@@ -106,15 +106,6 @@ function updateForm() {
     ? '二次确认联系方式' : key === 'phone' && abroad ? '电话或' + fields.chat : fields[key]).join('、') : '';
 }
 
-function canShareFiles(shareData) {
-  try {
-    return typeof navigator.share === 'function' && navigator.canShare?.(shareData);
-  } catch (error) {
-    console.warn('无法使用系统文件分享', error);
-    return false;
-  }
-}
-
 function setPhoto(file) {
   $('ocr-result').hidden = true;
   $('ocr-result').open = false;
@@ -146,7 +137,12 @@ function setPhoto(file) {
   download.download = name;
   const original = new File([file], name, { type: file.type });
   const shareData = { files: [original] };
-  const canShare = canShareFiles(shareData);
+  let canShare = false;
+  try {
+    canShare = typeof navigator.share === 'function' && navigator.canShare?.(shareData);
+  } catch (error) {
+    console.warn('无法分享原照', error);
+  }
   share.hidden = !canShare;
   help.textContent = canShare ? '在系统面板中选择「存储图像」或相册。' : '下载后可从文件管理器将原照移到相册。';
   share.onclick = async () => {
@@ -406,8 +402,7 @@ async function prepareExport(kind) {
     const records = await listRecords(kind === 'photos');
     if (!records.length) throw new Error('暂无已保存的记录。');
     if (kind === 'photos' && !records.some(row => row.photo)) throw new Error('已保存的记录中没有照片。');
-    const { blob, skippedPhotos = 0 } = kind === 'excel'
-      ? await workbook(records, getRecord) : { blob: await photoArchive(records) };
+    const blob = kind === 'excel' ? workbook(records) : await photoArchive(records);
     if (token !== exportToken) return;
     downloadUrl = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -415,27 +410,6 @@ async function prepareExport(kind) {
     link.download = kind === 'excel' ? '展会客户.xlsx' : '名片原照.zip';
     link.textContent = '下载 ' + link.download;
     feedback.replaceChildren(link);
-    if (kind === 'excel') {
-      feedback.append('（' + records.length + ' 条记录）');
-      const file = new File([blob], link.download, { type: blob.type });
-      const shareData = { files: [file] };
-      if (canShareFiles(shareData)) {
-        const share = document.createElement('button');
-        share.type = 'button';
-        share.textContent = '用其他应用打开或存储到文件';
-        share.onclick = async () => {
-          try {
-            await navigator.share(shareData);
-          } catch (error) {
-            if (error.name !== 'AbortError' && token === exportToken) {
-              feedback.append(' 系统未能打开，请使用下载链接。');
-            }
-          }
-        };
-        feedback.append(' ', share);
-      }
-    }
-    if (skippedPhotos) feedback.append('（' + skippedPhotos + ' 张照片无法嵌入，可另行导出原照 ZIP）');
   } catch (error) {
     if (token === exportToken) feedback.textContent = '无法导出：' + error.message;
   }
